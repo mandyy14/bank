@@ -58,26 +58,23 @@ public class ContaController {
 
     @PostMapping("/{id}/deposito")
     public ResponseEntity<Conta> depositar(@PathVariable Long id, @RequestBody double valor) {
-        if (valor <= 0) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        ResponseEntity<Conta> response = (valor <= 0) ? 
+            ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null) : null;
+        if (response != null) {
+            return response;
         }
         boolean sucesso = contaService.depositar(id, valor);
-        if (!sucesso) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        }
         Conta conta = contaService.buscarConta(id);
         log.info("Depósito de R${} realizado na conta id {}", valor, id);
-        return ResponseEntity.ok(conta);
+        return sucesso ? ResponseEntity.ok(conta) : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
     }
 
     @PostMapping("/{id}/saque")
     public ResponseEntity<Conta> sacar(@PathVariable Long id, @RequestBody double valor) {
-        if (valor <= 0) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        }
-        boolean sucesso = contaService.sacar(id, valor);
-        if (!sucesso) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        ResponseEntity<Conta> response = (valor <= 0 || !contaService.sacar(id, valor)) ? 
+            ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null) : null;
+        if (response != null) {
+            return response;
         }
         Conta conta = contaService.buscarConta(id);
         log.info("Saque de R${} realizado na conta id {}", valor, id);
