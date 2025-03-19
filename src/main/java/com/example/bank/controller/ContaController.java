@@ -24,47 +24,50 @@ import com.example.bank.service.IContaService;
 @RequestMapping("/contas")
 public class ContaController {
 
-    private Logger log = LoggerFactory.getLogger(getClass());
-    private IContaService contaService = ContaServiceFactory.getContaService();
+    private final Logger log = LoggerFactory.getLogger(getClass());
+    private final IContaService contaService;
+
+    public ContaController() {
+        this.contaService = ContaServiceFactory.getContaService();
+    }
 
     @GetMapping
-    public List<Conta> listarContas() {
+    public ResponseEntity<List<Conta>> listarContas() {
         log.info("Listando todas as contas cadastradas.");
-        return contaService.buscarTodasContas();
+        List<Conta> contas = contaService.buscarTodasContas();
+        return ResponseEntity.ok(contas);
     }
 
     @PostMapping
     public ResponseEntity<?> criar(@RequestBody Conta conta) {
         log.info("Tentando criar uma nova conta para {}", conta.getNomeTitular());
         if (conta.getNomeTitular() == null || conta.getNomeTitular().trim().isEmpty()) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro: Nome do titular é obrigatório.");
+            return ResponseEntity.badRequest().body("Erro: Nome do titular é obrigatório.");
         }
         if (conta.getCpfTitular() == null || conta.getCpfTitular().trim().isEmpty()) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro: CPF do titular é obrigatório.");
+            return ResponseEntity.badRequest().body("Erro: CPF do titular é obrigatório.");
         }
         if (conta.getDataAbertura().isAfter(LocalDate.now())) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro: Data de abertura não pode ser no futuro.");
+            return ResponseEntity.badRequest().body("Erro: Data de abertura não pode ser no futuro.");
         }
+        
         Conta novaConta = contaService.criarConta(conta);
         log.info("Conta criada com sucesso: {}", novaConta.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(novaConta);
     }
 
     @GetMapping("/{id}")
-    public Conta get(@PathVariable Long id) {
+    public ResponseEntity<Conta> get(@PathVariable Long id) {
         log.info("Buscando conta com ID {}", id);
         Conta conta = contaService.buscarConta(id);
-        return conta;
+        return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.notFound().build();
     }
 
     @GetMapping("/cpf/{cpf}")
-    public Conta getByCpf(@PathVariable String cpf) {
+    public ResponseEntity<Conta> getByCpf(@PathVariable String cpf) {
         log.info("Buscando conta pelo CPF {}", cpf);
         Conta conta = contaService.buscarContaPorCpf(cpf);
-        return conta;
+        return conta != null ? ResponseEntity.ok(conta) : ResponseEntity.notFound().build();
     }
 
     @PatchMapping("/{id}/encerrar")
@@ -75,24 +78,28 @@ public class ContaController {
     }
 
     @PostMapping("/{id}/deposito")
-    public ResponseEntity<Conta> depositar(@PathVariable Long id, @RequestBody double valor) {
+    public ResponseEntity<?> depositar(@PathVariable Long id, @RequestBody Map<String, Double> request) {
+        double valor = request.get("valor");
         log.info("Realizando depósito de R$ {} na conta ID {}", valor, id);
+        
         if (valor <= 0) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return ResponseEntity.badRequest().body("Erro: Valor do depósito deve ser maior que zero.");
         }
+        
         boolean sucesso = contaService.depositar(id, valor);
         Conta conta = contaService.buscarConta(id);
-        return sucesso ? ResponseEntity.ok(conta) : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        return sucesso ? ResponseEntity.ok(conta) : ResponseEntity.badRequest().body("Erro ao realizar depósito.");
     }
 
     @PostMapping("/{id}/saque")
-    public ResponseEntity<Conta> sacar(@PathVariable Long id, @RequestBody double valor) {
+    public ResponseEntity<?> sacar(@PathVariable Long id, @RequestBody Map<String, Double> request) {
+        double valor = request.get("valor");
         log.info("Realizando saque de R$ {} na conta ID {}", valor, id);
+
         if (valor <= 0 || !contaService.sacar(id, valor)) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return ResponseEntity.badRequest().body("Erro: Saque não pode ser realizado.");
         }
+        
         Conta conta = contaService.buscarConta(id);
         return ResponseEntity.ok(conta);
     }
@@ -104,17 +111,16 @@ public class ContaController {
         double valor = Double.parseDouble(request.get("valor").toString());
 
         log.info("Realizando PIX de R$ {} da conta {} para conta {}", valor, origemId, destinoId);
+        
         if (valor <= 0) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erro: Valor do PIX deve ser maior que zero.");
+            return ResponseEntity.badRequest().body("Erro: Valor do PIX deve ser maior que zero.");
         }
+        
         boolean sucesso = contaService.realizarPix(origemId, destinoId, valor);
         if (!sucesso) {
-            
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Erro: PIX não pôde ser realizado. Verifique saldo e contas.");
+            return ResponseEntity.badRequest().body("Erro: PIX não pôde ser realizado. Verifique saldo e contas.");
         }
+        
         Conta origemAtualizada = contaService.buscarConta(origemId);
         log.info("PIX realizado com sucesso. Saldo atualizado na conta de origem ID {}", origemId);
         return ResponseEntity.ok(origemAtualizada);
