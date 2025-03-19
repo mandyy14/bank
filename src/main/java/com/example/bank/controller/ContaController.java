@@ -1,5 +1,4 @@
 package com.example.bank.controller;
-
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -25,11 +24,7 @@ import com.example.bank.service.IContaService;
 public class ContaController {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
-    private final IContaService contaService;
-
-    public ContaController() {
-        this.contaService = ContaServiceFactory.getContaService();
-    }
+    private final IContaService contaService = ContaServiceFactory.getContaService();
 
     @GetMapping
     public ResponseEntity<List<Conta>> listarContas() {
